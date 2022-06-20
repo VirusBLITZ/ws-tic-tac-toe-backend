@@ -40,23 +40,33 @@ var ws_1 = require("ws");
 var port = 4040;
 console.log("Listening on Port ".concat(port));
 var wss = new ws_1.WebSocketServer({ port: port, clientTracking: true });
+var Player = /** @class */ (function () {
+    function Player(id, ws, alias) {
+        this.id = id;
+        this.ws = ws;
+        this.alias = alias;
+    }
+    return Player;
+}());
 var Game = /** @class */ (function () {
     function Game(player0) {
+        this.players = [];
         this.board = [
-            ['', '', ''],
-            ['', '', ''],
-            ['', '', '']
+            ["", "", ""],
+            ["", "", ""],
+            ["", "", ""],
         ];
         this.players.push(player0);
     }
     Game.prototype.join = function (player1) {
         this.players.push(player1);
-        this.players[0].send('+');
+        this.players[0].ws.send("+" + this.players[1].alias); // Tell both players each other's names
+        this.players[1].ws.send("+" + this.players[0].alias);
     };
     Game.prototype.start = function () {
         var beginner = Math.floor(Math.random()); // choose a random player to start
         this.players.forEach(function (player) {
-            player.send('start');
+            player.ws.send("start" + beginner);
         });
     };
     return Game;
@@ -64,11 +74,22 @@ var Game = /** @class */ (function () {
 function newGame(id, player0) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
-            activeGames[id] = new Game();
+            activeGames[id] = new Game(player0);
+            // console.log(activeGames)
+            autoClose(id);
             return [2 /*return*/];
         });
     });
 }
+var autoClose = function (id) { return __awaiter(void 0, void 0, void 0, function () {
+    return __generator(this, function (_a) {
+        setTimeout(function () {
+            delete activeGames[id];
+            console.log("Deleted Game due to inactivity");
+        }, 43200000);
+        return [2 /*return*/];
+    });
+}); };
 var activeGames = {};
 function genId() {
     var x = Math.random() * 10000;
@@ -77,20 +98,41 @@ function genId() {
     }
     return Math.floor(x);
 }
+function genPlayerId() {
+    var x = Math.random() * 100000000;
+    while (x <= 10000000) {
+        x = Math.random() * 100000000;
+    }
+    return Math.floor(x);
+}
 wss.on("connection", function connection(ws) {
-    ws.on("message", function message(data, isBinary) {
-        if (String(data) === "new") {
+    ws.on("message", function message(data) {
+        data = String(data);
+        if (data.startsWith("new ") && data.length > 4) { // Creating a new game
             var id = genId();
-            console.log('NEW GAME:', id);
-            ws.send(id);
-            newGame(id, ws);
+            var playerId = genPlayerId();
+            var alias = data.slice(4);
+            console.log("NEW GAME:", id);
+            console.log("Alias:", alias);
+            ws.send(">" + id);
+            ws.send("<" + playerId);
+            newGame(id, new Player(playerId, ws, alias));
+        }
+        else if (data.startsWith("+") && data.length > 5) { // Joining a game
+            var id = data.slice(1, 5);
+            if (activeGames[id]) { // Game exists
+                var playerId = genPlayerId();
+                var alias = data.slice(5);
+                activeGames[id].join(new Player(playerId, ws, alias));
+                console.log(alias, "joined");
+                console.log(activeGames[id]);
+            }
+            else {
+                ws.send(404); // Game not found
+            }
         }
         else {
-            try {
-                //
-            }
-            catch (_a) {
-            }
+            ws.send(400); // Invalid message
         }
     });
 });
