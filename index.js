@@ -108,7 +108,8 @@ function genPlayerId() {
 wss.on("connection", function connection(ws) {
     ws.on("message", function message(data) {
         data = String(data);
-        if (data.startsWith("new ") && data.length > 4) { // Creating a new game
+        if (data.startsWith("new ") && data.length > 4) {
+            // Creating a new game
             var id = genId();
             var playerId = genPlayerId();
             var alias = data.slice(4);
@@ -118,9 +119,11 @@ wss.on("connection", function connection(ws) {
             ws.send("<" + playerId);
             newGame(id, new Player(playerId, ws, alias));
         }
-        else if (data.startsWith("+") && data.length > 5) { // Joining a game
+        else if (data.startsWith("+") && data.length > 5) {
+            // Joining a game
             var id = data.slice(1, 5);
-            if (activeGames[id]) { // Game exists
+            if (activeGames[id]) {
+                // Game exists
                 var playerId = genPlayerId();
                 var alias = data.slice(5);
                 activeGames[id].join(new Player(playerId, ws, alias));
