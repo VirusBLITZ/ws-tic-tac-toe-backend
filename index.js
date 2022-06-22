@@ -133,6 +133,8 @@ wss.on("connection", function connection(ws) {
                 // Game exists
                 var playerId = genPlayerId();
                 var alias = data.slice(5);
+                ws.id = Number(id);
+                ws.playerId = Number(playerId);
                 activeGames[id].join(new Player(playerId, ws, alias));
                 console.log(alias, "joined");
                 console.log(activeGames[id]);
@@ -141,19 +143,25 @@ wss.on("connection", function connection(ws) {
                 ws.send(404); // Game not found
             }
         }
-        else if (data === "^") {
-            if (ws.id !== undefined) {
+        else if (data == "^") {
+            if (ws.id != undefined) {
                 activeGames[ws.id].players.forEach(function (player) {
                     if (ws.playerId == player.id) {
                         player.ready = !player.ready;
-                        console.log(player.alias);
+                        console.log("Player", player.alias, "is" + (player.ready ? "" : " not") + " ready");
                         ws.send(String(player.ready));
                     }
                 });
+                activeGames[ws.id].players[0].ws.send("^");
+            }
+        }
+        else if (data == "start") {
+            if (ws.id != undefined && activeGames[ws.id].players[1].ready) {
+                activeGames[ws.id].start();
             }
         }
         else {
-            ws.send(400); // Invalid message
+            ws.send(400); // Unknown command
         }
     });
 });

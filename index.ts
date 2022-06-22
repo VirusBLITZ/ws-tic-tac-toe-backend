@@ -28,14 +28,14 @@ class Game {
     ["", "", ""],
   ]
   join(player1: Player) {
-    if(this.players.length < 2) {
+    if (this.players.length < 2) {
       this.players.push(player1)
       this.players[0].ws.send("+" + this.players[1].alias) // Tell both players each other's names
       this.players[1].ws.send("+" + this.players[0].alias)
     } else {
       player1.ws.send("full")
     }
-    }
+  }
   start() {
     const beginner = Math.floor(Math.random()) // choose a random player to start
     this.players.forEach((player) => {
@@ -97,24 +97,35 @@ wss.on("connection", function connection(ws) {
         // Game exists
         const playerId = genPlayerId()
         const alias = data.slice(5)
+        ws.id = Number(id)
+        ws.playerId = Number(playerId)
         activeGames[id].join(new Player(playerId, ws, alias))
         console.log(alias, "joined")
         console.log(activeGames[id])
       } else {
         ws.send(404) // Game not found
       }
-    } else if (data === "^") {
-      if (ws.id !== undefined) {
+    } else if (data == "^") {
+      if (ws.id != undefined) {
         activeGames[ws.id].players.forEach((player) => {
-          if(ws.playerId == player.id){
+          if (ws.playerId == player.id) {
             player.ready = !player.ready
-            console.log(player.alias)
+            console.log(
+              "Player",
+              player.alias,
+              "is" + (player.ready ? "" : " not") + " ready"
+            )
             ws.send(String(player.ready))
           }
         })
+        activeGames[ws.id].players[0].ws.send("^")
+      }
+    } else if (data == "start") {
+      if (ws.id != undefined && activeGames[ws.id].players[1].ready) {
+        activeGames[ws.id].start()
       }
     } else {
-      ws.send(400) // Invalid message
+      ws.send(400) // Unknown command
     }
   })
 })
