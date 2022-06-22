@@ -13,6 +13,7 @@ class Player {
   }
   alias: string
   id: number
+  ready: false
   ws: WebSocket
 }
 
@@ -27,10 +28,14 @@ class Game {
     ["", "", ""],
   ]
   join(player1: Player) {
-    this.players.push(player1)
-    this.players[0].ws.send("+" + this.players[1].alias) // Tell both players each other's names
-    this.players[1].ws.send("+" + this.players[0].alias)
-  }
+    if(this.players.length < 2) {
+      this.players.push(player1)
+      this.players[0].ws.send("+" + this.players[1].alias) // Tell both players each other's names
+      this.players[1].ws.send("+" + this.players[0].alias)
+    } else {
+      player1.ws.send("full")
+    }
+    }
   start() {
     const beginner = Math.floor(Math.random()) // choose a random player to start
     this.players.forEach((player) => {
@@ -77,6 +82,8 @@ wss.on("connection", function connection(ws) {
       // Creating a new game
       const id = genId()
       const playerId = genPlayerId()
+      ws.id = id
+      ws.playerId = playerId
       const alias = data.slice(4)
       console.log("NEW GAME:", id)
       console.log("Alias:", alias)
@@ -95,6 +102,16 @@ wss.on("connection", function connection(ws) {
         console.log(activeGames[id])
       } else {
         ws.send(404) // Game not found
+      }
+    } else if (data === "^") {
+      if (ws.id !== undefined) {
+        activeGames[ws.id].players.forEach((player) => {
+          if(ws.playerId == player.id){
+            player.ready = !player.ready
+            console.log(player.alias)
+            ws.send(String(player.ready))
+          }
+        })
       }
     } else {
       ws.send(400) // Invalid message

@@ -59,9 +59,14 @@ var Game = /** @class */ (function () {
         this.players.push(player0);
     }
     Game.prototype.join = function (player1) {
-        this.players.push(player1);
-        this.players[0].ws.send("+" + this.players[1].alias); // Tell both players each other's names
-        this.players[1].ws.send("+" + this.players[0].alias);
+        if (this.players.length < 2) {
+            this.players.push(player1);
+            this.players[0].ws.send("+" + this.players[1].alias); // Tell both players each other's names
+            this.players[1].ws.send("+" + this.players[0].alias);
+        }
+        else {
+            player1.ws.send("full");
+        }
     };
     Game.prototype.start = function () {
         var beginner = Math.floor(Math.random()); // choose a random player to start
@@ -112,6 +117,8 @@ wss.on("connection", function connection(ws) {
             // Creating a new game
             var id = genId();
             var playerId = genPlayerId();
+            ws.id = id;
+            ws.playerId = playerId;
             var alias = data.slice(4);
             console.log("NEW GAME:", id);
             console.log("Alias:", alias);
@@ -132,6 +139,17 @@ wss.on("connection", function connection(ws) {
             }
             else {
                 ws.send(404); // Game not found
+            }
+        }
+        else if (data === "^") {
+            if (ws.id !== undefined) {
+                activeGames[ws.id].players.forEach(function (player) {
+                    if (ws.playerId == player.id) {
+                        player.ready = !player.ready;
+                        console.log(player.alias);
+                        ws.send(String(player.ready));
+                    }
+                });
             }
         }
         else {
