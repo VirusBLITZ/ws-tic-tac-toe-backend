@@ -22,6 +22,9 @@ class Game {
     this.players.push(player0)
   }
   players: Array<Player> = []
+  turn = 0
+  won: boolean = false
+  beginner = -1
   board = [
     ["", "", ""],
     ["", "", ""],
@@ -37,10 +40,113 @@ class Game {
     }
   }
   start() {
-    const beginner = Math.floor(Math.random()) // choose a random player to start
+    console.log("starting game")
+    const beginner = Math.floor(Math.random() * 2) // 0 or 1, random player starts
+    this.beginner = beginner
     this.players.forEach((player) => {
       player.ws.send("start" + beginner)
     })
+  }
+  resetBoard() {
+    this.board = [
+      ["", "", ""],
+      ["", "", ""],
+      ["", "", ""],
+    ]
+    this.turn = 0
+    this.won = false
+    this.beginner = this.beginner === 0 ? 1 : 0
+    // send every cell to the client one by one
+    this.players.forEach((player) => {
+      ;[0, 1, 2].forEach((row) => {
+        ;[0, 1, 2].forEach((col) => {
+          // player.ws.send("=" + row + col + "c")
+            player.ws.send("=" + row + col + "c")
+        })
+      })
+    })
+  }
+  place(player: Player, row: number, col: number) {
+    if (this.board[row][col] === "" && !this.won) {
+      if (this.turn == 0) {
+        // check if player is beginner
+        if (this.players[this.beginner] === player) {
+          this.board[row][col] = this.players[0] === player ? "x" : "o"
+          this.turn++
+        }
+      } else if (
+        (this.turn % 2) - this.beginner === 0 &&
+        this.players[0] === player
+      ) {
+        this.board[row][col] = "x"
+        this.turn++
+        this.checkWin(0)
+      } else if (
+        (this.turn % 2) - this.beginner !== 0 &&
+        this.players[1] === player
+      ) {
+        this.board[row][col] = "o"
+        this.turn++
+        this.checkWin(1)
+      }
+      this.players.forEach((player) => {
+        player.ws.send("=" + row + col + this.board[row][col])
+      })
+    } else {
+      player.ws.send(400)
+    }
+  }
+  checkWin(id: number) {
+    if (this.checkRow() || this.checkCol() || this.checkDiag()) {
+      this.players.forEach((player) => {
+        player.ws.send("win" + id)
+      })
+      this.won = true
+    } else if (this.turn === 9) {
+      this.players.forEach((player) => {
+        player.ws.send("draw")
+      })
+    }
+  }
+  checkRow() {
+    for (let i = 0; i < 3; i++) {
+      if (
+        this.board[i][0] === this.board[i][1] &&
+        this.board[i][1] === this.board[i][2] &&
+        this.board[i][0] !== ""
+      ) {
+        return true
+      }
+    }
+    return false
+  }
+  checkCol() {
+    for (let i = 0; i < 3; i++) {
+      if (
+        this.board[0][i] === this.board[1][i] &&
+        this.board[1][i] === this.board[2][i] &&
+        this.board[0][i] !== ""
+      ) {
+        return true
+      }
+    }
+    return false
+  }
+  checkDiag() {
+    if (
+      this.board[0][0] === this.board[1][1] &&
+      this.board[1][1] === this.board[2][2] &&
+      this.board[0][0] !== ""
+    ) {
+      return true
+    } else if (
+      this.board[0][2] === this.board[1][1] &&
+      this.board[1][1] === this.board[2][0] &&
+      this.board[0][2] !== ""
+    ) {
+      return true
+    }
+    return false
   }
 }
 
@@ -123,6 +229,20 @@ wss.on("connection", function connection(ws) {
     } else if (data == "start") {
       if (ws.id != undefined && activeGames[ws.id].players[1].ready) {
         activeGames[ws.id].start()
+      } else {
+        ws.send(400)
+      }
+    } else if (data.startsWith("=") && data.length === 3) {
+      if (ws.id != undefined) {
+        activeGames[ws.id].players.forEach((player) => {
+          if (ws.playerId == player.id) {
+            activeGames[ws.id].place(player, Number(data[1]), Number(data[2]))
+          }
+        })
+      }
+    } else if (data == "restart") {
+      if (ws.id != undefined) {
+        activeGames[ws.id].resetBoard()
       }
     } else {
       ws.send(400) // Unknown command
