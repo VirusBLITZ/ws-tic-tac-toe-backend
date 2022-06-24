@@ -36,10 +36,20 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 exports.__esModule = true;
+var https_1 = require("https");
+var fs_1 = require("fs");
 var ws_1 = require("ws");
 var port = 4040;
 console.log("Listening on Port ".concat(port));
-var wss = new ws_1.WebSocketServer({ port: port, clientTracking: true });
+var server = (0, https_1.createServer)({
+    cert: (0, fs_1.readFileSync)("cert.pem"),
+    key: (0, fs_1.readFileSync)("privkey.pem")
+});
+var wss = new ws_1.WebSocketServer({
+    server: server,
+    clientTracking: true
+});
+server.listen(port);
 var Player = /** @class */ (function () {
     function Player(id, ws, alias) {
         this.id = id;

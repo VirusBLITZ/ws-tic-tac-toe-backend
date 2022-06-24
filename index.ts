@@ -1,9 +1,20 @@
+import { createServer } from "https"
+import { readFileSync } from "fs"
 import { WebSocket, WebSocketServer } from "ws"
 
 const port = 4040
 console.log(`Listening on Port ${port}`)
 
-const wss = new WebSocketServer({ port: port, clientTracking: true })
+const server = createServer({
+  cert: readFileSync("cert.pem"),
+  key: readFileSync("privkey.pem"),
+})
+const wss = new WebSocketServer({
+  server,
+  clientTracking: true,
+})
+
+server.listen(port)
 
 class Player {
   constructor(id: number, ws: WebSocket, alias: string) {
@@ -61,7 +72,7 @@ class Game {
       ;[0, 1, 2].forEach((row) => {
         ;[0, 1, 2].forEach((col) => {
           // player.ws.send("=" + row + col + "c")
-            player.ws.send("=" + row + col + "c")
+          player.ws.send("=" + row + col + "c")
         })
       })
     })
